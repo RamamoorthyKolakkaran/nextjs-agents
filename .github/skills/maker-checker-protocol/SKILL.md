@@ -3,184 +3,277 @@ name: maker-checker-protocol
 description: "Shared input/output envelope and gate rules for all Maker/Checker SDLC agents. Load this skill first in every maker and checker agent."
 ---
 
-# Maker/Checker Protocol
+# Maker-Checker Protocol
 
-This skill defines the shared data contract used by every SDLC Maker and Checker agent.
+This skill defines the **shared communication envelope** and **universal gate rules** used by all phases (planning, development, testing). Every maker produces this envelope; every checker validates against it.
 
-## Input Envelope
+## The Maker-Checker Cycle
 
-Every agent receives:
+Every SDLC phase follows this cycle:
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `artifact_type` | string | requirement \| design \| code \| test \| pr \| deploy |
-| `source_ref` | string | Jira ticket ID, PR URL, branch name, or file path |
-| `context` | string | Additional context or constraints |
-| `previous_output` | object | Output from a prior checker iteration (null on first run) |
+1. **Maker Role** produces an artifact (requirements doc, component diagram, source code, test file, etc.)
+2. **Maker** wraps output in the **Output Envelope** (see below)
+3. **Checker Role** validates each field against **Gate Rules** (see below)
+4. **Checker** runs all gates:
+   - ✅ PASSED gates → continue
+   - ❌ FAILED gates → return findings to maker; ask user to fix and re-run
+5. After all gates pass and user approves, **Checker** returns the approved envelope to the next phase
 
-> **Phase is never required as input.** Each agent knows its own phase by identity. The `code` agent always sets `phase: development`; it uses `role: maker` for intermediate output (artifact draft) and `role: checker` for the final validated output. No caller needs to supply either value.
+---
 
 ## Output Envelope
 
-Every agent must produce:
+Every maker must produce output wrapped in this envelope structure. The checker validates **every field** against the corresponding gate rules.
 
-| Field | Values | Description |
-|-------|--------|-------------|
-| `phase` | string | Inferred by the agent from its own identity (e.g., `development` for the `code` agent) |
-| `role` | string | `maker` for intermediate output; `checker` for final validated output |
-| `status` | draft \| reviewed \| approved \| rejected \| needs-fix | Current state of the artifact |
-| `artifacts` | array | Paths or inline content of produced files/documents |
-| `findings` | array | Issues found (checker) or notes (maker) |
-| `gate_result` | pass \| fail | Whether the phase quality gate passed |
-| `next_action` | proceed \| fix \| escalate | What happens next |
-| `next_agent` | string | Name of the agent to invoke next |
-| `iteration` | number | Correction attempt count (0 = first run, 1 = first fix, 2+ = escalate) |
+### Envelope Structure
 
-## Fix Loop Rule
-
-- Checker returns `gate_result: fail` → **stop and present the checklist to the user** → User corrects issues → Checker re-validates on next invocation.
-- **Maximum 2 correction rounds** (iteration 0 → 1 → 2) before escalating to a human.
-- Checker MUST increment `iteration` in output: `iteration = (previous_output?.iteration ?? -1) + 1`
-- If iteration ≥ 2 on re-invoke: escalate without re-validating
-- On escalation: produce a structured findings report listing all unresolved gates and stop.
-- Checkers **never auto-fix** — they surface failures as a checklist and wait for the user to act.
-- Every step transition requires **explicit user approval** ("yes / no") before proceeding.
-
-## Escalation Rules (When Checkers Stop & Ask for Human Help)
-
-**Automatic Escalation (Do not proceed without human review):**
-- Iteration ≥ 2: Same phase failed twice → Stop, produce escalation report
-- Any P0 unmitigated (in PR phase): Never auto-proceed → Must have explicit human approval
-- Breaking changes without mitigation: Must have explicit human approval
-- Test coverage < 80% in production code: Must have explicit human approval + risk acceptance
-- Jira fetch fails: Must have explicit manual ticket content before proceeding
-
-**Escalation Report Format:**
 ```json
 {
-  "phase": "{phase}",
-  "status": "escalated",
-  "gate_result": "fail",
-  "iteration": 2,
-  "unresolved_gates": [
-    { "gate_id": "T3", "issue": "Only 1 happy path test; need error cases", "remediation": "Add ≥1 error/boundary case per requirement" },
-    { "gate_id": "C4", "issue": "Magic string found: 'user_profile_url' in 3 places", "remediation": "Extract to constants.ts" }
+  "phase": "planning|development|testing|review|deployment",
+  "timestamp": "ISO 8601 datetime",
+  "source_ref": "ticket_id|pr_url|file_path",
+  "status": "draft|ready-for-review|reviewed|needs-fix",
+  "gate_result": "pass|fail",
+  
+  "artifact": {
+    "type": "requirement_doc|component_diagram|api_contract|source_code|unit_tests|e2e_tests|pr_description|release_notes",
+    "content": "artifact content (markdown, code, or structured data)",
+    "files_changed": ["file1.ts", "file2.tsx", "..."],
+    "files_created": ["file3.ts", "..."],
+    "checklist_items": ["item1", "item2", "..."]
+  },
+  
+  "quality_checks": {
+    "completeness": {
+      "gate": "completeness",
+      "status": "✅ PASSED | ❌ FAILED",
+      "finding": "all required sections present | missing: X, Y, Z"
+    },
+    "clarity": {
+      "gate": "clarity",
+      "status": "✅ PASSED | ❌ FAILED",
+      "finding": "writing is clear and unambiguous | unclear sections: ..."
+    },
+    "correctness": {
+      "gate": "correctness",
+      "status": "✅ PASSED | ❌ FAILED",
+      "finding": "technically sound | errors found: ..."
+    },
+    "consistency": {
+      "gate": "consistency",
+      "status": "✅ PASSED | ❌ FAILED",
+      "finding": "aligns with prior phase outputs | conflicts: ..."
+    },
+    "standards_compliance": {
+      "gate": "standards_compliance",
+      "status": "✅ PASSED | ❌ FAILED",
+      "finding": "follows project standards | violations: ..."
+    }
+  },
+  
+  "findings": [
+    {
+      "gate": "gate_name",
+      "severity": "critical|high|medium",
+      "issue": "description of what failed",
+      "remediation": "specific action to fix"
+    }
   ],
-  "human_action_required": "Please address all ❌ items and re-run the phase",
-  "next_action": "human-review"
+  
+  "next_action": "proceed_to_next_phase | request_user_approval | request_revision",
+  "next_agent": "agent_name_or_null",
+  "notes": "any additional context for the next phase"
 }
 ```
 
-**Human Approval Points:**
-- Always ask: "Do you approve [action]? (yes / no)" before proceeding past escalation
-- If "no": Stop and wait for further instruction
-- If "yes": Proceed to next step (only after explicit user approval)
+---
 
-## Phase Gate Rules
+## Universal Gate Rules
 
-| Phase | Maker must produce | Checker gate must pass |
-|-------|--------------------|------------------------|
-| Planning | ≥3 SMART acceptance criteria | No ambiguous criteria; all are testable |
-| Design | Component diagram + API contract | No circular deps; follows App Router patterns |
-| Development | Compiles; no lint errors | OWASP Top 10 clean; naming conventions; no magic strings |
-| Testing | All tests pass; changed files covered | Layer compliance; no anti-patterns (no `waitForTimeout`) |
-| Review | PR description with risk assessment | All checklist items pass; no P0/P1 bugs |
-| Deployment | Release notes + rollback plan | Env vars verified; no unmitigated breaking changes |
+These gates apply to **every phase** and **every maker artifact**. The checker validates each gate independently and records the result (✅ PASSED or ❌ FAILED) in the `quality_checks` section above.
+
+### Gate 1: Completeness
+
+**Definition:** The artifact contains all required sections and information for its type.
+
+**Validation:** For each artifact type, verify:
+
+| Artifact Type | Required Sections | Validation |
+|---|---|---|
+| Requirement doc | Title, Acceptance Criteria, Scope, Out of Scope, Test Cases, Risk Assessment | All sections present with substantive content |
+| Component diagram | Components, Relationships, Data Flow, API Endpoints | All elements drawn; all interactions labeled |
+| API contract | Endpoint, Method, Auth, Request Schema, Response Schema, Error Schema | All fields defined with examples |
+| Source code | Implementation, Type annotations, Comments where needed, No TODOs or FIXMEs | Compiles, passes linter, follows conventions |
+| Unit tests | Test cases cover: happy path, edge cases, error cases, security scenarios | All test cases execute and pass |
+| E2E tests | User flows covered, error paths covered, recovery paths covered | All tests execute and pass |
+
+**FAILED:** Any required section is missing or empty.
+**PASSED:** All required sections present with meaningful content.
+
+### Gate 2: Clarity
+
+**Definition:** The artifact is written clearly and unambiguously; any reader can understand it without external explanation.
+
+**Validation:**
+
+- ✅ **PASSED:** Language is clear, jargon is explained, diagrams are labeled, code is readable
+- ❌ **FAILED:** Vague wording, unexplained abbreviations, unclear logic, ambiguous instructions
+
+**Remediation:** Rewrite unclear sections; add diagrams or examples for complex concepts.
+
+### Gate 3: Correctness
+
+**Definition:** The artifact is technically sound and implements the requirements accurately.
+
+**Validation:**
+
+- For **requirements:** Do acceptance criteria match the ticket/brief? Are test cases viable?
+- For **design:** Do API contracts match the requirements? Do component relationships make sense?
+- For **code:** Does it compile? Do tests pass? Does it match the design contract?
+- For **tests:** Do tests actually exercise the functionality? Do they catch real bugs?
+
+**FAILED:** Technical errors, logic flaws, missing error handling, incomplete implementation.
+**PASSED:** No technical errors; implementation matches specification exactly.
+
+### Gate 4: Consistency
+
+**Definition:** The artifact aligns with all prior phase outputs. No contradictions.
+
+**Validation:**
+
+| Artifact Type | Must Align With | Check For |
+|---|---|---|
+| Component diagram | Requirement doc | All acceptance criteria addressable by components? |
+| API contract | Component diagram | All data flows have matching endpoints? |
+| Source code | API contract | Implementation matches endpoint signatures exactly? |
+| Unit tests | Source code | All public functions have test cases? |
+| E2E tests | Acceptance criteria | All acceptance criteria have corresponding E2E tests? |
+
+**FAILED:** Contradicts prior phase outputs; misaligns with acceptance criteria.
+**PASSED:** Fully aligned; no contradictions.
+
+### Gate 5: Standards Compliance
+
+**Definition:** The artifact follows project-wide conventions, naming standards, and quality rules defined in `project-config` and `best-practices`.
+
+**Validation:**
+
+- Naming conventions respected (camelCase, PascalCase, UPPER_SNAKE_CASE as defined)
+- File structure follows conventions (co-located tests, proper directory layout)
+- Code style matches ESLint + TypeScript strict rules
+- Comments and documentation use the project's language setting
+- No security violations (no hardcoded secrets, no XSS risks, etc.)
+- No accessibility regressions (ARIA labels, keyboard nav, color contrast)
+- No performance red flags (unnecessary re-renders, O(n²) algorithms, etc.)
+
+**FAILED:** Violates any convention or standard defined in `best-practices` or `project-config`.
+**PASSED:** Fully compliant with all standards.
 
 ---
 
-## Master Quality Gates Reference
+## Checker Validation Workflow
 
-Quick reference: All gates across 6 phases (🔴 = Must Pass | 🟡 = High Priority | 🟢 = Medium):
+When acting as the checker, follow this exact workflow:
 
-| Gate ID | Phase | Type | Gate Name | Requirement |
-|---------|-------|------|-----------|-------------|
-| R1 | Planning | 🔴 | No vague language | Ban: improve, optimize, enhance, robust, scalable (unquantified) |
-| R2 | Planning | 🔴 | Independent testability | Each criterion passes/fails independently |
-| R3 | Planning | 🔴 | No implementation details | Outcomes only, no tech choices |
-| R4 | Planning | 🔴 | Scope clarity | Explicit OUT-OF-SCOPE and NON-FUNCTIONAL sections |
-| D1 | Design | 🔴 | No circular deps | Component graph is acyclic |
-| D2 | Design | 🔴 | NextJS compliance | Server/Client split correct; proper data-fetching |
-| D3 | Design | 🔴 | Type safety | All API types defined; no `any` types |
-| D4 | Design | 🟡 | Security | OWASP Top 10 risks listed with mitigations |
-| D5 | Design | 🟡 | Performance budgeted | Load time + bundle size targets defined |
-| D6 | Design | 🟡 | Accessibility path | WCAG 2.1 AA compliance steps defined |
-| D7 | Design | 🟡 | Breaking changes | Identified and mitigated |
-| C1 | Development | 🔴 | Compiles | No TypeScript errors |
-| C2 | Development | 🔴 | ESLint clean | Zero lint violations |
-| C3 | Development | 🔴 | No debug output | No console.log(), debugger in production |
-| C4 | Development | 🟡 | No magic strings | All user-visible strings are named constants |
-| C5 | Development | 🟡 | Config externalized | URLs, flags, timeouts from env vars |
-| C6 | Development | 🟡 | OWASP safe | Input validation, CSRF tokens, auth checks |
-| C7 | Development | 🟢 | Build success | No warnings or errors |
-| T1 | Testing | 🔴 | All tests pass | 100% pass rate; no flaky tests |
-| T2 | Testing | 🔴 | Coverage | ≥80% code coverage on changed files |
-| T3 | Testing | 🟡 | 4-perspective | ≥1 Happy + ≥1 Error + Boundary/Regression identified |
-| T4 | Testing | 🟡 | No brittle selectors | All E2E locators verified from source |
-| T5 | Testing | 🟡 | No anti-patterns | No waitForTimeout, no hardcoded delays |
-| P1 | Review | 🔴 | PR title format | `[TICKET-ID] One-line description` |
-| P2 | Review | 🔴 | Risk assessment | Every area marked P0/P1/P2 with justification |
-| P3 | Review | 🔴 | No unmitigated P0/P1 | All critical risks have documented mitigations |
-| P4 | Review | 🟡 | Test evidence | Coverage %, E2E summary, CI results linked |
-| P5 | Review | 🟡 | Rollback actionable | Step-by-step procedure tested in staging |
-| P6 | Review | 🟡 | Checklist complete | All pre-merge items verified |
-| DP1 | Deployment | 🔴 | Env vars verified | All required vars pre-configured in prod |
-| DP2 | Deployment | 🔴 | No unmitigated breaking | Breaking changes have backward-compat or migration window |
-| DP3 | Deployment | 🟡 | Rollback tested | Procedure executed in staging; confirmed to work |
-| DP4 | Deployment | 🟡 | Monitoring | Key metrics + alert thresholds defined |
-| DP5 | Deployment | 🟡 | Rollback criteria explicit | Specific measurable thresholds (not vague) |
+### Step 1: Load the Envelope
 
-**Agent Usage:** When validating, map each gate rule to this reference. If gate is missing, escalate.
+Receive the output envelope from the maker artifact.
 
----
+### Step 2: Validate Each Gate Independently
 
-## Production Readiness Gates (Final Approval)
+For each universal gate (Completeness, Clarity, Correctness, Consistency, Standards Compliance):
 
-Before Deploy phase executes, confirm ALL of these:
+1. Evaluate the artifact against the gate definition
+2. Record: `status` (✅ PASSED or ❌ FAILED)
+3. Record: `finding` (concise description of what passed or what failed)
 
-| Gate | Check | Status | Notes |
-|------|-------|--------|-------|
-| **PR1** | Planning phase complete? | ✅ MUST PASS | At least ≥3 SMART criteria approved |
-| **PR2** | Design phase complete? | ✅ MUST PASS | Component diagram + API contract approved |
-| **PR3** | Development phase complete? | ✅ MUST PASS | All code compiles; ESLint clean |
-| **PR4** | Testing phase complete? | ✅ MUST PASS | 100% tests pass; ≥80% coverage |
-| **PR5** | PR review complete? | ✅ MUST PASS | Risk assessment done; P0/P1 mitigated |
-| **PR6** | No P0 unmitigated? | ✅ MUST PASS | All security/data-loss risks documented as "accepted" or "mitigated" |
-| **PR7** | Rollback tested? | ✅ MUST PASS | Procedure executed in staging; confirmed to restore previous state |
-| **PR8** | Monitoring configured? | ✅ MUST PASS | Key metrics + alert thresholds defined |
-| **PR9** | All gates passed? | ✅ MUST PASS | Check Master Quality Gates Reference (above) — zero 🔴 failures |
-| **PR10** | User explicitly approved? | ✅ MUST PASS | Last approval: "Are you ready to deploy? (yes / no)" |
+Phase-specific gates are defined in the phase's `-checker` skill and follow this same pattern.
 
-**Deploy Phase Requirement:**
-If ANY gate is ❌ FAILED, Deploy agent must STOP immediately and respond:
-> "Production readiness check failed on gate(s): [list failed gates]. Address these and re-run before deployment is allowed."
+### Step 3: Display Results
 
----
+Present a checklist table to the user:
 
-## Inter-Phase Handoff Checklist
+```markdown
+### Validation Results
 
-When transitioning from one phase to the next:
+| # | Gate | Status | Finding |
+|---|------|--------|---------|
+| 1 | Completeness | ✅ PASSED | All required sections present |
+| 2 | Clarity | ❌ FAILED | API response schema uses undocumented field names |
+| 3 | Correctness | ✅ PASSED | Implementation matches design contract |
+| 4 | Consistency | ✅ PASSED | Aligns with prior phase outputs |
+| 5 | Standards Compliance | ✅ PASSED | Follows naming conventions and best practices |
 
-**Before proceeding to next phase, checklist:**
-- [ ] Current phase `status: approved` in output envelope
-- [ ] All artifacts from current phase are accessible (no dead links)
-- [ ] User explicitly approved: "Do you approve proceeding to [next phase name]? (yes / no)"
-- [ ] Next agent has all required skills loaded (maker-checker-protocol + project-config + phase-specific)
-- [ ] `previous_output` from current phase has been passed to next agent's input
+**Overall Result: ❌ FAILED (1 issue found)**
+```
 
-**Agent Handoff Message Template:**
-> "Phase [CURRENT] complete ✅ All gates passed.
->
-> Ready to move to Phase [NEXT]: [Description]
->
-> Do you approve? (yes / no)"
+### Step 4: Handle Failures
 
-**If user says "no":**
-- STOP immediately
-- Do not invoke next agent
-- Wait for user to provide updated requirements or context
+If any gate shows ❌ FAILED:
 
-**If user says "yes":**
-- Invoke next phase agent
-- Pass `previous_output` containing all artifacts and findings
-- Next agent begins with Step 1 (load skills)
+1. Stop immediately — do not proceed
+2. For each failed gate:
+   - State the gate name
+   - Explain the specific issue found
+   - Provide remediation guidance (specific action to fix)
+3. Ask the user:
+   > "Validation failed. Please correct the ❌ items above and re-run this phase."
+4. Discard the envelope — do not return it
+5. Wait for user to re-run the phase with fixes
+
+### Step 5: Handle Passes
+
+If all gates show ✅ PASSED:
+
+1. Ask the user for explicit approval:
+   > "All checks passed. Do you approve moving to the next step? (yes / no)"
+2. **Wait for the user's reply:**
+   - If user replies **yes**: Continue to Step 6
+   - If user replies **no**: Stop and await further instruction
+3. Do not proceed without explicit user approval
+
+### Step 6: Return the Approved Envelope
+
+Set the envelope status to `reviewed` and return it to the next phase:
+
+```json
+{
+  "phase": "...",
+  "status": "reviewed",
+  "gate_result": "pass",
+  "quality_checks": { ... },
+  "findings": [],
+  "next_action": "proceed_to_next_phase",
+  "next_agent": "..." 
+}
+```
+
+## Maker Responsibilities
+
+When acting as the maker:
+
+1. **Understand the Input:** Read `source_ref`, `context`, and any `previous_output` from prior checker findings
+2. **If previous_output is not null:** Apply all remediation items from the checker before producing new artifact
+3. **Produce the Artifact:** Create the artifact according to phase-specific guidelines
+4. **Wrap in Envelope:** Return the artifact in the **Output Envelope** structure above
+5. **Do Not Skip Validation:** Immediately invoke the checker workflow — do not skip validation
+
+
+## Checker Responsibilities
+
+When acting as the checker:
+
+1. **Load the Envelope:** Receive the maker's output envelope
+2. **Validate Each Gate:** Apply all universal gates (see section above)
+3. **Record Results:** For each gate, record status (✅ or ❌) and finding
+4. **Stop on Failure:** If any gate fails, stop immediately and return findings
+5. **Get User Approval:** If all gates pass, request explicit user approval before proceeding
+6. **Return Envelope:** Only return the approved envelope after user approval
+
+## Phase-Specific Gates
+
+Universal gates apply to all phases. Each phase also defines **phase-specific gates** in its `-checker` skill file. Those gates are appended to the universal gates and follow the same validation workflow.
+
+Example: The `code-checker` skill defines additional gates for compilation, linting, and type safety that apply only to code artifacts. The `planning-checker` skill defines additional gates for acceptance criteria completeness and test coverage that apply only to requirement artifacts.
+
+All gates (universal + phase-specific) must pass before the envelope is approved.

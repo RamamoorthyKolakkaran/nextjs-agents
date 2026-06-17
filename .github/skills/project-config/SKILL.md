@@ -1,9 +1,9 @@
 ---
 name: project-config
-description: "Project-specific configuration for next-js-agents. Single source of truth for app name, E2E setup, language, key paths, and team conventions. Load this skill in every agent alongside maker-checker-protocol. Extend via the train command as the project evolves."
+description: "Project-specific configuration for nextjs-agents. Single source of truth for app name, E2E setup, language, key paths, and team conventions. Load this skill in every agent alongside maker-checker-protocol. Extend via the train command as the project evolves."
 ---
 
-# Project Configuration — next-js-agents
+# Project Configuration — nextjs-agents
 
 This skill is the single source of truth for project-specific settings. All agents load it at runtime — never hardcode these values inside individual agents.
 
@@ -11,7 +11,7 @@ This skill is the single source of truth for project-specific settings. All agen
 
 | Field | Value |
 |-------|-------|
-| **Name** | next-js-agents |
+| **Name** | nextjs-agents |
 | **Framework** | NextJS App Router |
 | **CSS framework** | Tailwind CSS v4 |
 | **Response language** | English |
@@ -63,13 +63,6 @@ Control which SDLC phases are active for this project. Agents check this table a
 
 | Phase | Enabled | Notes |
 |-------|---------|-------|
-| planning | ✅ enabled | Requirement writing and acceptance criteria |
-| design | ✅ enabled | Component diagrams and API contracts |
+| planning | ✅ enabled | Requirement writing and acceptance criteria, Component diagrams and API contracts |
 | development | ✅ enabled | TypeScript/React implementation |
 | testing | ✅ enabled | Unit tests and E2E tests |
-| review | ✅ enabled | PR description and risk assessment |
-| deployment | ✅ enabled | Release notes and rollback plan |
-
-> To disable a phase: change `✅ enabled` to `❌ disabled` via the `train` command targeting `project-config`.
-> When a phase is disabled, its phase agent will immediately respond with:
-> `"Phase {phase} is disabled in project-config. Skipping."` and stop without producing any artifact.

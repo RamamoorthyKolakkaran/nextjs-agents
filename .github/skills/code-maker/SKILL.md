@@ -1,60 +1,163 @@
 ---
 name: code-maker
-description: "Code Maker skill. Use when producing TypeScript source files and React components for the development SDLC phase. Defines artifacts to create and quality standards for the maker role."
+description: "Code Maker skill. Use when producing TypeScript/React implementation for the development SDLC phase. Enforces production-ready code with minimal exploration and maximum reuse."
 ---
 
 # Code Maker
 
-Load this skill alongside `maker-checker-protocol` and `best-practices` when acting as the **Code Maker**.
+Load this skill alongside `maker-checker-protocol`, `best-practices`, and `repository-discovery` when acting as the **Code Maker**.
 
 ## Role
 
-Produce the **development** phase artifact: TypeScript source files and React components.
+Implement approved requirements in production-ready TypeScript/React code.
+
+**You are NOT a designer.** Your responsibility is **implementation only**.
 
 ## Required Inputs
 
-- `source_ref`: ticket ID, PR URL, or file path
+- `source_ref`: ticket ID, PR URL, branch name, or file path
 - `context`: constraints or additional guidance
 - `previous_output`: prior checker findings (null on first run; apply all findings if present)
 
-## Output Artifact
+## Core Principles
 
-- Working, compiling TypeScript/React code implementing all approved requirements
-- ESLint passes; no `console.log()`, `debugger`, or `TODO` comments in production
-- Tailwind CSS v4 utility classes only — no hardcoded colors/spacing or `style={{}}` props
-- No magic strings — all user-facing text, routes, config keys defined as constants
-- No hardcoded API URLs, feature flags, or environment-specific values — use env vars or config imports
-- OWASP Top 10 mitigations implemented
-- All new imports declared; no circular imports
-- Named exports (except Next.js page/layout/error files)
+1. **Implement approved requirements only** — no redesigns, no scope expansion
+2. **Reuse existing code** — prefer extending to creating new files
+3. **Minimize exploration** — use `repository-discovery` patterns to stay efficient
+4. **Minimize changes** — only modify what's needed
+5. **Maintain consistency** — follow existing patterns from the target directory
+6. **Production-ready** — no debugging code, no TODOs, all tests pass
+
+## Implementation Workflow
+
+### Step 1: Understand the Scope
+
+Read the approved planning/design output:
+
+- What are the acceptance criteria?
+- What components/functions need to be created or modified?
+- Are there API contracts to implement?
+- What data models are involved?
+
+### Step 2: Map the Target Location
+
+Using `repository-discovery` patterns, determine where code will live:
+
+- Page component? → `app/` directory
+- Shared component? → `components/` directory
+- Custom hook? → `hooks/` directory
+- Utility function? → `lib/` or `utils/` directory
+- API route? → `app/api/` directory
+- Type definition? → co-locate with the code or in `types/` directory
+
+### Step 3: Load Local Context (Max 5 Files)
+
+Read:
+
+1. The target file (if it exists)
+2. Similar files in the same directory (2–3 examples)
+3. Shared utilities or hooks used by similar code
+4. Type definitions referenced locally
+
+**Do NOT** read unrelated parts of the codebase.
+
+### Step 4: Identify Reuse Opportunities
+
+For each new piece of code:
+
+- Does a similar component/hook/utility already exist?
+- Can you extend or compose it instead of creating new code?
+- What patterns should you follow (naming, structure, error handling)?
+
+### Step 5: Implement with Minimum Changes
+
+Write code that:
+
+- Matches local conventions (naming, structure, imports, error handling)
+- Reuses existing utilities and components
+- Minimizes new files (prefer extending existing files)
+- Includes proper TypeScript types (no `any`)
+- Includes appropriate error handling
+- Includes security validation (input validation, auth checks)
+- Includes accessibility (ARIA labels, keyboard nav where needed)
+
+### Step 6: Type Safety Checklist
+
+Before considering implementation complete:
+
+- ✅ All functions have explicit return types
+- ✅ All parameters have type annotations
+- ✅ No `any` types (use `unknown` with type guards if needed)
+- ✅ No implicit `any` from library types
+- ✅ All API responses are typed
+- ✅ State is properly typed
+
+## Output Requirements
+
+Provide:
+
+- **Files Modified** — List all files changed with line ranges
+- **Files Created** — List any new files with their content
+- **Implementation Summary** — Brief overview of what was implemented
+- **Risks** — Any risks or assumptions
+- **Validation Results** — TypeScript compilation, ESLint, Build status, Contract compliance
 
 ## Quality Standards
 
-- ✅ Compiles: No TypeScript errors
-- ✅ ESLint clean: Zero lint violations
-- ✅ No console output: No `console.log()`, `console.error()`, `debugger` in production code
-- ✅ No TODOs: All TODO/FIXME comments removed or tracked in separate issues
-- ✅ Magic strings eliminated: All user-visible strings/routes/config keys are named constants
-- ✅ Config externalized: API URLs, feature flags, timeouts from env vars or config files
-- ✅ OWASP Top 10 safe: Input validation, output encoding, auth checks, CSRF tokens, no secrets in logs
-- ✅ Naming conventions: Follow best-practices (PascalCase components, camelCase functions, UPPER_SNAKE_CASE constants)
-- ✅ Accessibility compliance: No accessibility regressions; form labels present; ARIA attributes correct
-- ✅ Performance impact: Actual bundle size ≤ target; load time within budget (measure and report)
-- ✅ Build passes: No warnings or errors
+### TypeScript
 
-## Production Steps
+- Strict mode enabled
+- No `any` types
+- Explicit return types on all exports
+- Proper interface/type definitions
 
-1. Load `best-practices` skill for naming/structure conventions
-2. Read approved design artifact and existing source files using Explore subagent
-3. **Code step 1 — Setup:** Create necessary files in correct structure (`components/`, `lib/`, etc.)
-4. **Code step 2 — Implementation:** Write TypeScript/React code following design contract and best-practices
-5. **Code step 3 — No magic strings:** Extract ALL user-facing text, routes, config keys into `constants.ts`
-6. **Code step 4 — No hardcoded config:** Move API URLs, feature flags, timeouts to `.env.local` or config module
-7. **Code step 5 — Security implementation:** Implement OWASP mitigations (form validation, output sanitization, auth checks, CSRF tokens)
-8. **Code step 6 — Cleanup:** Remove all `console.log()`, `debugger`, and TODO comments
-9. **Code step 7 — Lint & build:** Run ESLint and build; fix all violations
-10. Commit and request user approval before checker validation
+### Code Style
+
+- Follows `best-practices` naming conventions
+- Tailwind CSS for styling (no inline styles)
+- Proper import order (React/Next → third-party → internal → relative)
+- No console.log, debugger, TODO, or FIXME
+
+### Testing
+
+- If code changes require tests, note which test files need updates
+- Tests should be written in the testing phase, not here
+
+### Security
+
+- Input validation on all user-facing inputs
+- Authentication checks where needed
+- No hardcoded secrets
+- No XSS vulnerabilities
+- No SQL injection vulnerabilities (if using database)
+
+### Performance
+
+- No unnecessary re-renders (proper use of Server Components vs Client Components)
+- No O(n²) algorithms
+- No memory leaks
+
+## Validation Requirements
+
+Before returning the implementation:
+
+1. **TypeScript compilation** — `npm run build` succeeds
+2. **Linting** — `npm run lint` shows zero violations
+3. **Contract compliance** — Implementation matches approved design exactly
+4. **Acceptance criteria** — All criteria are implemented
+
+If any validation fails, note it in the output and request remediation.
+
+## What NOT to Do
+
+- ❌ Refactor unrelated code
+- ❌ Add speculative features
+- ❌ Change the architecture without approval
+- ❌ Create unnecessary files
+- ❌ Add new dependencies
+- ❌ Include debugging code (console.log, debugger, etc.)
+- ❌ Leave TODOs or FIXMEs
 
 ## Checker Handoff
 
-After producing the artifact, proceed to checker validation within the same agent run — load the **code-checker** skill and apply all gate rules. Do not invoke a separate checker agent.
+After producing the code implementation, proceed to checker validation within the same agent run — load the **code-checker** skill and apply all gate rules. Do not invoke a separate checker agent.
