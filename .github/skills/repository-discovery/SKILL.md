@@ -1,162 +1,104 @@
 ---
 name: repository-discovery
-description: "Efficient codebase navigation and locality-first implementation patterns. Load this skill when performing code generation to minimize repository exploration cost and enforce reuse-first strategies."
+description: "Minimal codebase exploration protocol. Load in the code agent to enforce locality-first patterns, minimize file reads, and maximize reuse of existing code."
 ---
 
 # Repository Discovery
 
-This skill optimizes **efficiency during code generation** by establishing structured patterns for exploring the repository and enforcing locality-first implementation strategies.
+This skill defines the **exploration protocol** for the development phase. It enforces minimal repository scanning, locality-first implementation, and maximum reuse of existing patterns.
 
-## Core Principle: Locality First
+## Core Principle
 
-When implementing a feature or writing tests:
+**Read the minimum context required to implement — no more.**
 
-1. **Identify the target location** — where the new code should live (e.g., `app/page.tsx`, `components/Button.tsx`, `hooks/useCart.ts`)
-2. **Read the immediate vicinity** — scan files in the same directory and parent directories for patterns, shared utilities, and examples
-3. **Reuse before creating** — extend existing files or patterns before creating new ones
-4. **Minimize repo exploration** — avoid reading unrelated parts of the codebase
-5. **Follow existing conventions** — mirror patterns found locally, not distant parts of the repo
-
-## File Reading Budget
-
-To keep token costs reasonable:
-
-- **Per feature:** Maximum 10 files read (excluding test files)
-- **Per phase:** Maximum 15 files read
-- **Prioritize:** Source files in the target directory, then parent directories, then core framework files
-
-If you exceed the budget, pause and ask the user for guidance.
+Before reading any file, ask: _"Do I already have enough context to implement this?"_ If yes, skip the read.
 
 ## Context Loading Order
 
-When starting a new implementation task, load context in this order:
+Load context in this order, stopping as soon as you have enough to proceed:
 
-1. **Target file path** (if file exists) — read the exact location where code will be added/modified
-2. **Adjacent files in the same directory** — identify local patterns (naming, structure, imports)
-3. **Parent directory files** — understand the module's structure and conventions
-4. **Shared utilities** (`lib/`, `utils/`, `hooks/`, `components/`) — look for reusable patterns
-5. **Type definitions** (`types/`, `*.d.ts`) — understand shared types and contracts
-6. **Configuration files** (`next.config.ts`, `tsconfig.json`) — verify build and type settings
-7. **Test examples** — inspect existing tests in the same directory to understand testing patterns
+1. **The target file(s)** — Read only files directly mentioned in the task
+2. **Neighbouring files** — Read adjacent components, hooks, or utilities in the same directory
+3. **Import graph (one level)** — Trace imports from the target files only
+4. **Conventions reference** — Check `best-practices` skill for naming and structure rules
+5. **Full directory scan** — Only if the above is insufficient
 
-Do not read:
+Never jump to step 5 without exhausting steps 1–4.
 
-- Unrelated feature directories
-- Large package-lock files
-- Build outputs (`.next/`, `dist/`, `build/`)
-- Generated files
+## Locality-First Patterns
+
+Before creating anything new, check:
+
+1. **Does a similar component exist in `components/`?** → Extend or reuse it
+2. **Does a similar hook exist in `hooks/`?** → Reuse or compose it
+3. **Does a similar utility exist in `lib/` or `utils/`?** → Call it
+4. **Does a similar API call exist in `services/` or `api/`?** → Reuse the pattern
+
+Only create new files if no existing file can be extended or reused.
+
+## File Reading Budget
+
+| Context Type | Max Files |
+|---|---|
+| Target implementation files | Unlimited |
+| Supporting components / hooks | 5 |
+| Utility / lib files | 3 |
+| Config files | 2 |
+| **Total supporting reads** | **10** |
+
+If you need more than 10 supporting reads, **stop and ask the user** which specific context is needed.
 
 ## Repository Reuse Rules
 
-Before writing any new code:
-
-### Rule 1: Check for Existing Components
-
-- Is there an existing component that can be reused or extended?
-- Example: Instead of creating a new form component, extend an existing `Form` component with new fields
-- Decision: **Reuse before creating**
-
-### Rule 2: Check for Existing Utilities
-
-- Is there a utility function that does (or could do) what you need?
-- Example: Instead of creating `formatDate()`, check if it exists in `lib/` or `utils/`
-- Decision: **Extend before duplicating**
-
-### Rule 3: Check for Existing Patterns
-
-- How do similar features or components structure their code?
-- Example: If other API routes use a consistent error handling pattern, use it too
-- Decision: **Follow patterns, don't invent new ones**
-
-### Rule 4: Check for Existing Test Patterns
-
-- How are other tests written? What utilities do they use?
-- Example: If tests use a shared test factory, use it instead of creating fixtures inline
-- Decision: **Reuse test utilities and patterns**
+1. **Never duplicate logic** — if a utility already does it, call it
+2. **Never create a new state management pattern** — use the project's existing solution (Zustand v4.5.5)
+3. **Never introduce a new library** — if the task requires a library not already in `package.json`, stop and ask
+4. **Never invent API behavior** — if an API contract is unclear, stop and ask
 
 ## Scope Control
 
-Stay focused on the immediate task:
+Only modify files that are:
+- Directly required by the task
+- Test files for changed code
+- Type files for changed contracts
 
-- **Feature scope:** Only files required by the acceptance criteria
-- **Test scope:** Only test cases for changed/created code, not entire modules
-- **Refactoring scope:** Only changes required to implement the feature; no additional cleanup unless explicitly requested
+Do not touch:
+- Unrelated components
+- Global configuration (unless the task explicitly requires it)
+- Shared utilities (unless extending is the minimal-change solution)
 
-If a task requires changes outside the immediate scope, ask the user before proceeding.
+## Exploration Delegation
 
-## Discovery Workflow
+When file scanning is required, always delegate to the **Explore** subagent — do not inline file reads within the code generation step. Pass discovered context back as a structured list of relevant files and patterns.
 
-When starting implementation:
+### Exploration Request Format
 
-### Step 1: Identify Target Location
+When delegating to Explore, provide:
 
-Determine where the code should live based on:
+```
+Scan: <directory or glob>
+Find: <what to look for — e.g., existing Button component, existing API fetch pattern>
+Return: file paths + relevant code snippets (max 20 lines per file)
+```
 
-- Acceptance criteria
-- Feature type (component, hook, utility, API route, etc.)
-- Next.js App Router conventions
-- Existing project structure
+### Exploration Output Format
 
-### Step 2: Read Immediate Context (Max 5 files)
+Expect Explore to return:
 
-Load:
+```
+Existing patterns found:
+  - <file path>: <one-line description of relevant pattern>
 
-1. Target file itself (if exists)
-2. Similar files in the same directory (2–3 examples)
-3. Shared utilities or hooks used locally
-4. Type definitions (if needed)
+Reuse recommendation:
+  - Extend <file> for <reason>
+  OR
+  - No reusable pattern found — safe to create new file
+```
 
-### Step 3: Identify Patterns
+## Anti-Patterns to Avoid
 
-Look for:
-
-- Naming conventions (already defined in `best-practices`)
-- File structure and organization
-- Import styles
-- Error handling patterns
-- Component composition patterns
-
-### Step 4: Check Reuse Opportunities
-
-For each new element you're about to create:
-
-- Does a similar element already exist?
-- Can you extend or compose it instead?
-- What pattern should you follow?
-
-### Step 5: Implement with Locality
-
-Write code that:
-
-- Matches local conventions
-- Reuses local utilities
-- Follows patterns found in the target directory
-- Minimizes new files (prefer extending existing files)
-
-## Handling Missing Context
-
-If you cannot find an answer through local exploration:
-
-1. **Ask the user** — don't guess or invent
-2. **Suggest a pattern** — "I see components in `components/` follow this pattern. Should I use it?"
-3. **Check configuration** — verify settings in `tsconfig.json`, `next.config.ts`, or `package.json`
-
-## When to Escalate
-
-Stop and ask the user to clarify:
-
-- **Ambiguous feature scope** — "Acceptance criteria mentions X. Should I also implement Y?"
-- **Missing type definitions** — "I don't see types for this API. Should I create them?"
-- **Conflicting patterns** — "I see two different patterns for this. Which should I use?"
-- **Out-of-scope changes** — "Implementing this would require refactoring in module Y. Should I proceed?"
-
-## Efficient Exploration Checklist
-
-Before you start reading files, confirm:
-
-- ✅ I know the **target directory** (where code will live)
-- ✅ I know the **feature scope** (from acceptance criteria)
-- ✅ I understand **what already exists** (from high-level scan)
-- ✅ I have a **plan** (how to implement with existing patterns)
-
-If any checkbox is unclear, ask the user before proceeding.
+- Reading the entire repository before writing a single line
+- Scanning unrelated directories out of curiosity
+- Creating new abstractions for one-time use
+- Adding utility functions that already exist elsewhere
+- Importing from files that are not in the direct dependency chain

@@ -54,17 +54,9 @@ This skill defines the coding conventions and naming standards for all TypeScrip
 
 ## Styling — Tailwind CSS v4
 
-- Use Tailwind utility classes exclusively — no inline style={{}} props
-- Use cn() or clsx() for conditional class merging
+- Use Tailwind utility classes exclusively — no `style={{}}` inline props
+- Use `cn()` or `clsx()` for conditional class merging
 - Extract repeated class combinations into component variants if the same pattern appears 3+ times
-
-## Storybook
-
-- Every shared UI component in components/ must have a co-located .stories.tsx file
-- Stories must cover all significant prop variants and interactive states
-- Use the CSF3 format (const Story: StoryObj<typeof Component>)
-- No business logic or API calls inside stories — use mock args only
-- Storybook must build without errors before a PR is merged
 
 ## Exports
 
@@ -133,7 +125,7 @@ Do not place API calls directly inside UI components unless existing code alread
 
 ## State Management
 
-Reuse the project's existing state management solution: **Zustand**.
+Reuse the project's existing state management solution: **Zustand v4.5.5**.
 
 Do not introduce new state management libraries.
 
@@ -256,6 +248,7 @@ All gates must pass.
 - All acceptance criteria implemented
 - No undocumented behavior added
 - API implementation matches specification exactly
+- Tailwind CSS v4 utility classes only — no inline styles
 
 ## Pre-Commit Checklist
 

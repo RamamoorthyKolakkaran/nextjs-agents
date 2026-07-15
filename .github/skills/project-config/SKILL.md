@@ -20,7 +20,7 @@ This skill is the single source of truth for project-specific settings. All agen
 
 | Field | Value |
 |-------|-------|
-| **Unit test runner** | Vitest |
+| **Unit test runner** | Vitest v3.0.0 |
 | **E2E test runner** | Playwright |
 | **E2E test path** | tests/e2e |
 | **E2E setup exists** | yes |
@@ -45,8 +45,8 @@ This skill is the single source of truth for project-specific settings. All agen
 | Convention | Value |
 |-----------|-------|
 | Component library | _(add via train)_ |
-| State management | Zustand |
-| Storybook | yes |
+| State management | Zustand v4.5.5 |
+| Storybook | no |
 | API layer / client | _(add via train)_ |
 | Auth pattern | _(add via train)_ |
 | Form validation | _(add via train)_ |
@@ -66,3 +66,7 @@ Control which SDLC phases are active for this project. Agents check this table a
 | planning | ✅ enabled | Requirement writing and acceptance criteria, Component diagrams and API contracts |
 | development | ✅ enabled | TypeScript/React implementation |
 | testing | ✅ enabled | Unit tests and E2E tests |
+
+> To disable a phase: change `✅ enabled` to `❌ disabled` via the `train` command targeting `project-config`.
+> When a phase is disabled, its phase agent will immediately respond with:
+> `"Phase {phase} is disabled in project-config. Skipping."` and stop without producing any artifact.

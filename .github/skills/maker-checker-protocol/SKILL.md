@@ -34,7 +34,7 @@ Every maker must produce output wrapped in this envelope structure. The checker 
   "source_ref": "ticket_id|pr_url|file_path",
   "status": "draft|ready-for-review|reviewed|needs-fix",
   "gate_result": "pass|fail",
-  
+
   "artifact": {
     "type": "requirement_doc|component_diagram|api_contract|source_code|unit_tests|e2e_tests|pr_description|release_notes",
     "content": "artifact content (markdown, code, or structured data)",
@@ -42,7 +42,7 @@ Every maker must produce output wrapped in this envelope structure. The checker 
     "files_created": ["file3.ts", "..."],
     "checklist_items": ["item1", "item2", "..."]
   },
-  
+
   "quality_checks": {
     "completeness": {
       "gate": "completeness",
@@ -70,7 +70,7 @@ Every maker must produce output wrapped in this envelope structure. The checker 
       "finding": "follows project standards | violations: ..."
     }
   },
-  
+
   "findings": [
     {
       "gate": "gate_name",
@@ -79,7 +79,7 @@ Every maker must produce output wrapped in this envelope structure. The checker 
       "remediation": "specific action to fix"
     }
   ],
-  
+
   "next_action": "proceed_to_next_phase | request_user_approval | request_revision",
   "next_agent": "agent_name_or_null",
   "notes": "any additional context for the next phase"
@@ -241,10 +241,10 @@ Set the envelope status to `reviewed` and return it to the next phase:
   "phase": "...",
   "status": "reviewed",
   "gate_result": "pass",
-  "quality_checks": { ... },
+  "quality_checks": { "..." : "..." },
   "findings": [],
   "next_action": "proceed_to_next_phase",
-  "next_agent": "..." 
+  "next_agent": "..."
 }
 ```
 
@@ -257,7 +257,6 @@ When acting as the maker:
 3. **Produce the Artifact:** Create the artifact according to phase-specific guidelines
 4. **Wrap in Envelope:** Return the artifact in the **Output Envelope** structure above
 5. **Do Not Skip Validation:** Immediately invoke the checker workflow — do not skip validation
-
 
 ## Checker Responsibilities
 

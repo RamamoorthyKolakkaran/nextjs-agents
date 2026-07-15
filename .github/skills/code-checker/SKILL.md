@@ -1,6 +1,6 @@
 ---
 name: code-checker
-description: "Code Checker skill. Use when validating TypeScript/React implementation from code-maker. Applies gate rules and returns pass/fail with actionable findings."
+description: "Development Checker skill. Use when validating TypeScript/React source code from code-maker. Applies gate rules and returns pass/fail with actionable findings."
 ---
 
 # Code Checker
@@ -9,12 +9,12 @@ Load this skill alongside `maker-checker-protocol` when acting as the **Code Che
 
 ## Role
 
-Validate the **code** artifacts against the gate rules defined in `maker-checker-protocol`, plus phase-specific gates below.
+Validate the **development** artifact against the gate rules defined in `maker-checker-protocol` plus the phase-specific gates below.
 
 ## Validation Steps
 
 1. Load the output envelope from `code-maker`.
-2. For each gate rule defined below, evaluate the code artifact individually and mark it ✅ **PASSED** or ❌ **FAILED**.
+2. For each gate rule defined below, evaluate the maker artifact individually and mark it ✅ **PASSED** or ❌ **FAILED**.
 3. Present the full validation checklist to the user (see Output Format below).
 4. **If any gate is ❌ FAILED:**
    - Stop immediately — do not proceed.
@@ -27,185 +27,93 @@ Validate the **code** artifacts against the gate rules defined in `maker-checker
 6. Determine `gate_result`: **pass** (all gates clear) or **fail** (any gate failed).
 7. Return the output envelope only after user approval.
 
-## Universal Gate Rules
+## Gate Rules
 
-See `maker-checker-protocol` skill for the universal gates:
+### Universal Gates (from maker-checker-protocol)
 
-1. **Completeness** — All required sections present
-2. **Clarity** — Code is readable and self-explanatory
-3. **Correctness** — Implementation is technically sound
-4. **Consistency** — Code aligns with prior design outputs
-5. **Standards Compliance** — Follows `best-practices` and project conventions
+Apply all 5 universal gates: Completeness, Clarity, Correctness, Consistency, Standards Compliance.
 
-## Phase-Specific Gates — Code
+### Phase-Specific Gates
 
-These gates apply **only** to code artifacts.
+#### Gate 6: TypeScript Compilation
 
-### Gate 6: Compilation
-
-**Definition:** TypeScript code compiles without errors or warnings.
+**Definition:** The implementation compiles with no errors or warnings under strict TypeScript settings.
 
 **Validation:**
+- ✅ **PASSED:** `tsc --noEmit` exits with code 0; no type errors reported
+- ❌ **FAILED:** Any TypeScript compilation error exists
 
-- Run `npm run build` (or equivalent TypeScript compilation)
-- Zero compilation errors
-- Zero warnings (unless explicitly allowed by project configuration)
-- Type checking passes in strict mode
+**Remediation:** Fix all TypeScript errors; ensure all strict flags remain enabled in `tsconfig.json`.
 
-**FAILED:**
-- Compilation errors present
-- Build warnings that indicate type safety issues
-- Implicit `any` types detected
+#### Gate 7: ESLint Zero Violations
 
-**PASSED:**
-- Clean compilation with zero errors
-- No warnings related to type safety
-- All types are explicit
-
-### Gate 7: Linting
-
-**Definition:** Code passes ESLint and follows all project style rules.
+**Definition:** The implementation has zero ESLint violations.
 
 **Validation:**
+- ✅ **PASSED:** `eslint` exits with code 0 for all changed files
+- ❌ **FAILED:** Any ESLint violation exists
 
-- Run `npm run lint` (or equivalent ESLint check)
-- Zero ESLint violations
-- Code follows naming conventions from `best-practices`
-- Proper import order and organization
+**Remediation:** Fix all ESLint violations; do not suppress rules with `// eslint-disable` comments unless explicitly approved.
 
-**FAILED:**
-- ESLint violations present
-- Naming convention violations
-- Import order violations
+#### Gate 8: Type Safety
 
-**PASSED:**
-- Zero ESLint violations
-- Naming follows conventions
-- Imports properly organized
-
-### Gate 8: Type Safety
-
-**Definition:** All code is properly typed with no unsafe patterns.
+**Definition:** No `any` types; no untyped API responses; no unsafe type assertions.
 
 **Validation:**
+- ✅ **PASSED:** No `any` in changed files; all API responses are typed with explicit interfaces
+- ❌ **FAILED:** `any` found; untyped response objects; unsafe `as` casts without type guards
 
-- No `any` types (use `unknown` with type guards if needed)
-- No untyped API responses
-- All function parameters have explicit types
-- All function return types are explicit
-- No implicit type conversions
-- TypeScript strict mode enabled
+**Remediation:** Replace `any` with `unknown` + type guards; define explicit TypeScript interfaces for all API contracts.
 
-**FAILED:**
-- `any` types found
-- Missing type annotations
-- Untyped external data (API responses, props, etc.)
+#### Gate 9: Contract Compliance
 
-**PASSED:**
-- All code is properly typed
-- No unsafe patterns
-- Strict mode compliance
-
-### Gate 9: Security
-
-**Definition:** Code follows security best practices.
+**Definition:** The implementation matches the approved design contract exactly — no undocumented behavior, no missing acceptance criteria.
 
 **Validation:**
+- ✅ **PASSED:** Every acceptance criterion has a corresponding implementation; no extra behavior added
+- ❌ **FAILED:** Any criterion unimplemented; extra behavior added without approval
 
-- Input validation implemented on all user inputs
-- Authentication checks present where required
-- No hardcoded secrets or API keys
-- No XSS vulnerabilities (proper escaping/sanitization)
-- No SQL injection vulnerabilities (if using database)
-- Sensitive data not logged
-- CSRF protection where applicable
+**Remediation:** Implement all remaining criteria; remove or defer unapproved additions.
 
-**FAILED:**
-- Missing input validation
-- Hardcoded secrets present
-- XSS or injection vulnerabilities
-- Sensitive data logged
+#### Gate 10: Security
 
-**PASSED:**
-- All inputs validated
-- No hardcoded secrets
-- No known vulnerabilities
-- Proper authentication/authorization
-
-### Gate 10: Accessibility
-
-**Definition:** Code does not introduce accessibility regressions.
+**Definition:** The implementation follows secure coding practices from `best-practices`.
 
 **Validation:**
+- ✅ **PASSED:** Inputs validated; auth enforced; no secrets/PII logged; outputs sanitized
+- ❌ **FAILED:** Missing input validation; missing auth check; sensitive data logged; unsafe output
 
-- Form fields have proper labels
-- Interactive elements are keyboard-accessible
-- Proper ARIA attributes used where needed
-- Color contrast is sufficient (if styling changes)
-- Content is screen reader friendly
-- Focus management is appropriate
+**Remediation:** Add validation at all system boundaries; add auth enforcement; remove all logging of sensitive data.
 
-**FAILED:**
-- Missing form labels
-- Non-keyboard-accessible interactive elements
-- Missing ARIA attributes
-- Screen reader compatibility issues
+#### Gate 11: Accessibility
 
-**PASSED:**
-- All interactive elements are accessible
-- Proper labels and ARIA attributes
-- Keyboard navigation works
-- Screen reader compatible
-
-### Gate 11: Contract Compliance
-
-**Definition:** Implementation matches the approved design/API contract exactly.
+**Definition:** No accessibility regressions introduced.
 
 **Validation:**
+- ✅ **PASSED:** All form inputs have labels; all interactive elements keyboard-accessible; correct ARIA attributes
+- ❌ **FAILED:** Missing labels; non-keyboard-accessible controls; incorrect ARIA
 
-- All acceptance criteria are implemented
-- Function signatures match the contract
-- Request/response types match the contract
-- Error handling matches the contract
-- No undocumented features added
-- No breaking changes to public APIs
+**Remediation:** Add missing `<label>` associations; ensure `tabIndex` and keyboard handlers on custom controls; fix ARIA attributes.
 
-**FAILED:**
-- Acceptance criteria not fully implemented
-- Function signatures differ from contract
-- Missing error cases
-- Undocumented behavior added
+#### Gate 12: Styling Compliance
 
-**PASSED:**
-- All acceptance criteria implemented
-- Matches contract exactly
-- All error cases handled
-- No scope creep
-
-### Gate 12: Code Quality (Best Practices)
-
-**Definition:** Code follows project best practices from `best-practices` skill.
+**Definition:** All styles use Tailwind CSS v4 utility classes — no inline `style={{}}` props.
 
 **Validation:**
+- ✅ **PASSED:** No `style={{}}` props in changed files; conditional classes use `cn()` or `clsx()`
+- ❌ **FAILED:** Inline `style={{}}` props found
 
-- Tailwind CSS used (no inline styles)
-- Proper component composition (prefer Server Components)
-- Reuses existing utilities and patterns
-- Minimal file creation (extends existing where possible)
-- No debugging code (console.log, debugger, TODO, FIXME)
-- Proper error handling
-- Appropriate performance patterns
+**Remediation:** Replace inline styles with equivalent Tailwind utility classes.
 
-**FAILED:**
-- Inline styles present
-- Unnecessary Client Components
-- Debugging code present
-- Inefficient patterns
+#### Gate 13: Code Cleanliness
 
-**PASSED:**
-- Follows all best practices
-- Proper component selection
-- Code is clean and production-ready
+**Definition:** No debug artifacts left in production code.
+
+**Validation:**
+- ✅ **PASSED:** No `console.log`, `console.error`, `debugger`, TODO, or FIXME in changed files
+- ❌ **FAILED:** Any debug artifact found
+
+**Remediation:** Remove all debug artifacts before submission.
 
 ## Output Format
 
@@ -216,20 +124,21 @@ Always present a checklist table before returning the output envelope:
 
 | # | Gate | Result | Notes |
 |---|------|--------|-------|
-| 1 | Completeness | ✅ PASSED | All required sections present |
-| 2 | Clarity | ✅ PASSED | Code is well-organized and readable |
-| 3 | Correctness | ✅ PASSED | Logic is sound and correct |
-| 4 | Consistency | ✅ PASSED | Matches design contract |
-| 5 | Standards Compliance | ✅ PASSED | Follows naming and organization conventions |
-| 6 | Compilation | ✅ PASSED | TypeScript compiles without errors |
-| 7 | Linting | ✅ PASSED | Zero ESLint violations |
-| 8 | Type Safety | ✅ PASSED | All code properly typed |
-| 9 | Security | ✅ PASSED | Input validation and auth checks in place |
-| 10 | Accessibility | ✅ PASSED | No accessibility regressions |
-| 11 | Contract Compliance | ❌ FAILED | Acceptance criterion "X" not implemented |
-| 12 | Code Quality | ✅ PASSED | Follows all best practices |
+| 1 | Completeness | ✅ PASSED | — |
+| 2 | Clarity | ✅ PASSED | — |
+| 3 | Correctness | ✅ PASSED | — |
+| 4 | Consistency | ✅ PASSED | — |
+| 5 | Standards Compliance | ✅ PASSED | — |
+| 6 | TypeScript Compilation | ✅ PASSED | — |
+| 7 | ESLint Zero Violations | ✅ PASSED | — |
+| 8 | Type Safety | ✅ PASSED | — |
+| 9 | Contract Compliance | ✅ PASSED | — |
+| 10 | Security | ✅ PASSED | — |
+| 11 | Accessibility | ✅ PASSED | — |
+| 12 | Styling Compliance | ✅ PASSED | — |
+| 13 | Code Cleanliness | ✅ PASSED | — |
 
-**Overall: ❌ FAILED (1 issue found)**
+**Overall: ✅ ALL PASSED**
 ```
 
 **If any item is ❌ FAILED:**
@@ -244,4 +153,4 @@ Return the output envelope with:
 - `status`: `reviewed` (pass) or `needs-fix` (fail)
 - `findings`: list of failed gates with remediation steps
 - `gate_result`: `pass` or `fail`
-- `next_action` and `next_agent`: Should point to the testing phase
+- `next_action` and `next_agent`
