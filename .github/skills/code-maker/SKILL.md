@@ -1,6 +1,6 @@
 ---
 name: code-maker
-description: "Code Maker skill. Use when producing TypeScript/React implementation for the development SDLC phase. Enforces production-ready code with minimal exploration and maximum reuse."
+description: "Development Maker skill. Use when producing TypeScript/React source code implementing approved requirements for the development SDLC phase. Defines artifacts to create and quality standards for the maker role."
 ---
 
 # Code Maker
@@ -9,155 +9,112 @@ Load this skill alongside `maker-checker-protocol`, `best-practices`, and `repos
 
 ## Role
 
-Implement approved requirements in production-ready TypeScript/React code.
-
-**You are NOT a designer.** Your responsibility is **implementation only**.
+Produce the **development** phase artifact: TypeScript/React source code implementing the approved requirements from the planning phase.
 
 ## Required Inputs
 
-- `source_ref`: ticket ID, PR URL, branch name, or file path
+- `source_ref`: ticket ID, PR URL, or file path
 - `context`: constraints or additional guidance
 - `previous_output`: prior checker findings (null on first run; apply all findings if present)
 
 ## Core Principles
 
-1. **Implement approved requirements only** — no redesigns, no scope expansion
-2. **Reuse existing code** — prefer extending to creating new files
-3. **Minimize exploration** — use `repository-discovery` patterns to stay efficient
-4. **Minimize changes** — only modify what's needed
-5. **Maintain consistency** — follow existing patterns from the target directory
-6. **Production-ready** — no debugging code, no TODOs, all tests pass
+1. Implement **only** approved requirements — no extras, speculative improvements, or refactoring
+2. Reuse existing code when practical (enforced by `repository-discovery` skill)
+3. Minimize repository exploration and code changes
+4. Maintain consistency with existing patterns
+5. Produce production-ready code that passes all validation gates
 
-## Implementation Workflow
+If the design artifact and requirements conflict: **STOP and request clarification.** Do not guess.
 
-### Step 1: Understand the Scope
+## Output Artifact
 
-Read the approved planning/design output:
+Produce:
 
-- What are the acceptance criteria?
-- What components/functions need to be created or modified?
-- Are there API contracts to implement?
-- What data models are involved?
+### Files Modified
 
-### Step 2: Map the Target Location
+List every file changed, with a one-line description of what changed and why.
 
-Using `repository-discovery` patterns, determine where code will live:
+### Files Created
 
-- Page component? → `app/` directory
-- Shared component? → `components/` directory
-- Custom hook? → `hooks/` directory
-- Utility function? → `lib/` or `utils/` directory
-- API route? → `app/api/` directory
-- Type definition? → co-locate with the code or in `types/` directory
+List every new file, with a one-line justification for why it could not be an extension of an existing file.
 
-### Step 3: Load Local Context (Max 5 Files)
+### Implementation Summary
 
-Read:
+Describe what was implemented:
+- Which acceptance criteria are addressed
+- Which architectural primitives were used (Server Component, Client Component, Server Action, etc.)
+- Key design decisions made during implementation
 
-1. The target file (if it exists)
-2. Similar files in the same directory (2–3 examples)
-3. Shared utilities or hooks used by similar code
-4. Type definitions referenced locally
+### TypeScript Implementation
 
-**Do NOT** read unrelated parts of the codebase.
+Implement the approved design:
 
-### Step 4: Identify Reuse Opportunities
+- No `any` types — use `unknown` with type guards where needed
+- Explicit return types on all exported functions and components
+- `interface` for object shapes; `type` for unions, intersections, aliases
+- All strict TypeScript flags respected
 
-For each new piece of code:
+### Component Rules
 
-- Does a similar component/hook/utility already exist?
-- Can you extend or compose it instead of creating new code?
-- What patterns should you follow (naming, structure, error handling)?
+- Default to **Server Components** — add `"use client"` only when browser APIs, React hooks, or event handlers are needed
+- Keep data fetching in Server Components; pass data as props to Client Components
+- Named exports for all components except Next.js page/layout/loading/error files (default exports required)
 
-### Step 5: Implement with Minimum Changes
+### Styling
 
-Write code that:
+- Use Tailwind CSS v4 utility classes exclusively — no `style={{}}` inline props
+- Use `cn()` or `clsx()` for conditional class merging
+- Extract repeated class combinations into component variants if the same pattern appears 3+ times
 
-- Matches local conventions (naming, structure, imports, error handling)
-- Reuses existing utilities and components
-- Minimizes new files (prefer extending existing files)
-- Includes proper TypeScript types (no `any`)
-- Includes appropriate error handling
-- Includes security validation (input validation, auth checks)
-- Includes accessibility (ARIA labels, keyboard nav where needed)
+### API Integration (if applicable)
 
-### Step 6: Type Safety Checklist
-
-Before considering implementation complete:
-
-- ✅ All functions have explicit return types
-- ✅ All parameters have type annotations
-- ✅ No `any` types (use `unknown` with type guards if needed)
-- ✅ No implicit `any` from library types
-- ✅ All API responses are typed
-- ✅ State is properly typed
-
-## Output Requirements
-
-Provide:
-
-- **Files Modified** — List all files changed with line ranges
-- **Files Created** — List any new files with their content
-- **Implementation Summary** — Brief overview of what was implemented
-- **Risks** — Any risks or assumptions
-- **Validation Results** — TypeScript compilation, ESLint, Build status, Contract compliance
-
-## Quality Standards
-
-### TypeScript
-
-- Strict mode enabled
-- No `any` types
-- Explicit return types on all exports
-- Proper interface/type definitions
-
-### Code Style
-
-- Follows `best-practices` naming conventions
-- Tailwind CSS for styling (no inline styles)
-- Proper import order (React/Next → third-party → internal → relative)
-- No console.log, debugger, TODO, or FIXME
-
-### Testing
-
-- If code changes require tests, note which test files need updates
-- Tests should be written in the testing phase, not here
+- Follow existing service/api/lib patterns — do not place API calls directly in UI components
+- Use strongly typed request/response/error contracts — no untyped API responses
+- Never invent API behavior — if the contract is unclear, stop and ask
 
 ### Security
 
-- Input validation on all user-facing inputs
-- Authentication checks where needed
-- No hardcoded secrets
-- No XSS vulnerabilities
-- No SQL injection vulnerabilities (if using database)
+- Validate all inputs at system boundaries
+- Enforce authentication and authorization
+- Never log tokens, passwords, secrets, PII, or internal system errors
+- Sanitize outputs where applicable
 
-### Performance
+### Accessibility
 
-- No unnecessary re-renders (proper use of Server Components vs Client Components)
-- No O(n²) algorithms
-- No memory leaks
+- All form inputs must have labels
+- All interactive elements must be keyboard accessible
+- Correct ARIA attributes on custom interactive controls
 
-## Validation Requirements
+### Risks
 
-Before returning the implementation:
+List any implementation risks, trade-offs made, or known limitations.
 
-1. **TypeScript compilation** — `npm run build` succeeds
-2. **Linting** — `npm run lint` shows zero violations
-3. **Contract compliance** — Implementation matches approved design exactly
-4. **Acceptance criteria** — All criteria are implemented
+### Validation Results
 
-If any validation fails, note it in the output and request remediation.
+Report the outcome of each gate before submitting:
 
-## What NOT to Do
+| Gate | Status | Notes |
+|------|--------|-------|
+| TypeScript compiles | ✅ / ❌ | — |
+| ESLint zero violations | ✅ / ❌ | — |
+| No `any` types | ✅ / ❌ | — |
+| API contract matched | ✅ / ❌ | — |
+| Security checks | ✅ / ❌ | — |
+| Accessibility | ✅ / ❌ | — |
+| No debug artifacts | ✅ / ❌ | — |
 
-- ❌ Refactor unrelated code
-- ❌ Add speculative features
-- ❌ Change the architecture without approval
-- ❌ Create unnecessary files
-- ❌ Add new dependencies
-- ❌ Include debugging code (console.log, debugger, etc.)
-- ❌ Leave TODOs or FIXMEs
+## Quality Standards
+
+- TypeScript compiles with no errors or warnings
+- Zero ESLint violations
+- No `any` types; no untyped API responses
+- All acceptance criteria implemented
+- No undocumented behavior added
+- API implementation matches specification exactly
+- No `console.log`, `console.error`, `debugger`, TODO or FIXME comments
+- Tailwind CSS v4 utility classes only — no inline styles
 
 ## Checker Handoff
 
-After producing the code implementation, proceed to checker validation within the same agent run — load the **code-checker** skill and apply all gate rules. Do not invoke a separate checker agent.
+After producing the artifact, proceed to checker validation within the same agent run — load the **code-checker** skill and apply all gate rules. Do not invoke a separate checker agent.

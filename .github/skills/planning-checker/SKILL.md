@@ -1,6 +1,6 @@
 ---
 name: planning-checker
-description: "Planning Checker skill. Use when validating requirement analysis and acceptance criteria from planning-maker. Applies gate rules and returns pass/fail with actionable findings."
+description: "Planning Checker skill. Use when validating requirement documents, acceptance criteria, and implementation plans from planning-maker. Applies gate rules and returns pass/fail with actionable findings."
 ---
 
 # Planning Checker
@@ -9,7 +9,7 @@ Load this skill alongside `maker-checker-protocol` when acting as the **Planning
 
 ## Role
 
-Validate the **planning** artifacts against the gate rules defined in `maker-checker-protocol`, plus phase-specific gates below.
+Validate the **planning** artifact against the gate rules defined in `maker-checker-protocol` plus the phase-specific gates below.
 
 ## Validation Steps
 
@@ -27,134 +27,64 @@ Validate the **planning** artifacts against the gate rules defined in `maker-che
 6. Determine `gate_result`: **pass** (all gates clear) or **fail** (any gate failed).
 7. Return the output envelope only after user approval.
 
-## Universal Gate Rules
+## Gate Rules
 
-See `maker-checker-protocol` skill for the universal gates:
+### Universal Gates (from maker-checker-protocol)
 
-1. **Completeness** — All required sections present
-2. **Clarity** — Writing is clear and unambiguous
-3. **Correctness** — Requirements are technically sound
-4. **Consistency** — No contradictions with prior outputs
-5. **Standards Compliance** — Follows project conventions
+Apply all 5 universal gates: Completeness, Clarity, Correctness, Consistency, Standards Compliance.
 
-## Phase-Specific Gates — Planning
+### Phase-Specific Gates
 
-These gates apply **only** to planning artifacts.
+#### Gate 6: Requirement Readiness
 
-### Gate 6: Acceptance Criteria Definition
-
-**Definition:** Acceptance criteria are clearly defined, testable, and measurable.
+**Definition:** All acceptance criteria are testable, unambiguous, and sufficient for a developer to implement without guessing.
 
 **Validation:**
+- ✅ **PASSED:** Every acceptance criterion has a clear pass/fail condition; no criterion uses vague language ("should work", "behaves correctly")
+- ❌ **FAILED:** Any criterion is vague, missing, or untestable
 
-- Each criterion follows the format: "Given [context], When [action], Then [outcome]"
-- Criteria are testable (not vague like "should work well")
-- Criteria cover happy path AND edge cases
-- Criteria are independent (no cascading dependencies)
-- Success is measurable (can verify with automated or manual tests)
+**Remediation:** Rewrite vague criteria as: "Given [condition], when [action], then [expected outcome]."
 
-**FAILED:**
-- Acceptance criteria missing
-- Criteria are vague or untestable
-- Criteria mix happy path and error cases without clear separation
-- No way to verify completion
+#### Gate 7: Architecture Justification
 
-**PASSED:**
-- All criteria follow BDD format or are clearly testable
-- Both happy path and edge cases covered
-- Each criterion is independent and measurable
-
-### Gate 7: Risk Assessment
-
-**Definition:** Key risks and blockers are identified.
+**Definition:** The architecture decision section identifies the correct Next.js primitives (Server Component, Client Component, Server Action, Route Handler, etc.) with explicit reasoning.
 
 **Validation:**
+- ✅ **PASSED:** Each selected primitive is justified; no `"use client"` added without a valid reason (browser API, event handler, React hook)
+- ❌ **FAILED:** Client Component chosen without justification; Server Action not considered for mutations
 
-- All architectural decisions are justified
-- Integration dependencies are documented
-- Security/auth implications are noted
-- Performance implications are noted
-- Breaking changes are identified
+**Remediation:** Revisit the Server vs Client Components rules in `best-practices`. Justify each decision explicitly.
 
-**FAILED:**
-- No risk assessment present
-- Risks identified but not mitigated
-- Missing security or performance considerations
+#### Gate 8: Impact Analysis Accuracy
 
-**PASSED:**
-- Risks identified and mitigations proposed
-- Architecture decisions have rationale
-- Integration points documented
-
-### Gate 8: API Contract Completeness (if applicable)
-
-**Definition:** If API changes are needed, the contract is fully specified.
+**Definition:** All affected files/directories are identified; no relevant areas are omitted and no unrelated areas are included.
 
 **Validation:**
+- ✅ **PASSED:** Affected areas list is complete and tightly scoped to the ticket
+- ❌ **FAILED:** Missing affected files; unrelated files listed without justification
 
-- Endpoint URL and HTTP method specified
-- Request schema defined with types and examples
-- Response schema defined with types and examples
-- Error responses documented
-- Authentication/authorization requirements stated
-- Rate limiting or quota information included (if applicable)
+**Remediation:** Re-read the ticket requirements and cross-check with the file structure in `project-config`.
 
-**FAILED:**
-- API contract is incomplete
-- Missing request or response schema
-- No examples provided
-- Error cases not documented
+#### Gate 9: API Contract Completeness (if applicable)
 
-**PASSED:**
-- All contract fields defined
-- Examples provided for all scenarios
-- Error responses documented
-- Types are explicit (no `any`)
-
-### Gate 9: Component Hierarchy Clarity (if applicable)
-
-**Definition:** If UI changes are needed, component structure is clear.
+**Definition:** If the ticket involves API integration, the contract is fully specified with TypeScript types for request, response, and error shapes.
 
 **Validation:**
+- ✅ **PASSED:** Endpoint, method, auth, request type, response type, and error type are all defined
+- ✅ **PASSED (N/A):** No API integration in this ticket
+- ❌ **FAILED:** Any required contract field is missing or uses `any`
 
-- Component diagram exists (if complex UI changes)
-- Relationships between components documented
-- Data flow between components clear
-- State management approach specified
-- Props/interfaces documented for key components
+**Remediation:** Complete the API specification before proceeding to implementation.
 
-**FAILED:**
-- No component diagram for complex changes
-- Relationships unclear
-- Data flow ambiguous
+#### Gate 10: Scope Containment
 
-**PASSED:**
-- Diagram clearly shows all components and relationships
-- Data flow is explicit
-- State management strategy documented
-
-### Gate 10: Implementation Feasibility
-
-**Definition:** The implementation plan is realistic and achievable.
+**Definition:** The implementation plan addresses only the approved ticket scope — no speculative improvements, refactors, or out-of-scope additions.
 
 **Validation:**
+- ✅ **PASSED:** Every task in the implementation plan maps directly to an acceptance criterion
+- ❌ **FAILED:** Tasks exist that have no corresponding acceptance criterion
 
-- Tasks are logically sequenced
-- Dependencies between tasks are clear
-- No circular dependencies
-- Existing code/patterns are referenced where applicable
-- Time/complexity estimate is provided (if relevant)
-
-**FAILED:**
-- Implementation plan has logical flaws
-- Circular dependencies
-- Ignores existing patterns without justification
-
-**PASSED:**
-- Tasks are properly sequenced
-- Dependencies are clear
-- Existing patterns are referenced
-- Plan is realistic
+**Remediation:** Remove or defer all out-of-scope tasks. If the extra work is valuable, raise a separate ticket.
 
 ## Output Format
 
@@ -165,18 +95,18 @@ Always present a checklist table before returning the output envelope:
 
 | # | Gate | Result | Notes |
 |---|------|--------|-------|
-| 1 | Completeness | ✅ PASSED | All required sections present |
-| 2 | Clarity | ✅ PASSED | Writing is clear and well-organized |
-| 3 | Correctness | ✅ PASSED | Requirements align with ticket description |
-| 4 | Consistency | ✅ PASSED | Architecture decisions follow conventions |
-| 5 | Standards Compliance | ✅ PASSED | Terminology matches project standards |
-| 6 | Acceptance Criteria Definition | ❌ FAILED | Criteria are vague and not testable |
-| 7 | Risk Assessment | ✅ PASSED | Risks identified with mitigations |
-| 8 | API Contract Completeness | ✅ PASSED | (N/A for this ticket) |
-| 9 | Component Hierarchy Clarity | ✅ PASSED | Diagram shows all relationships clearly |
-| 10 | Implementation Feasibility | ✅ PASSED | Tasks logically sequenced |
+| 1 | Completeness | ✅ PASSED | — |
+| 2 | Clarity | ✅ PASSED | — |
+| 3 | Correctness | ✅ PASSED | — |
+| 4 | Consistency | ✅ PASSED | — |
+| 5 | Standards Compliance | ✅ PASSED | — |
+| 6 | Requirement Readiness | ✅ PASSED | — |
+| 7 | Architecture Justification | ✅ PASSED | — |
+| 8 | Impact Analysis Accuracy | ✅ PASSED | — |
+| 9 | API Contract Completeness | ✅ PASSED | — |
+| 10 | Scope Containment | ✅ PASSED | — |
 
-**Overall: ❌ FAILED (1 issue found)**
+**Overall: ✅ ALL PASSED**
 ```
 
 **If any item is ❌ FAILED:**
@@ -191,4 +121,4 @@ Return the output envelope with:
 - `status`: `reviewed` (pass) or `needs-fix` (fail)
 - `findings`: list of failed gates with remediation steps
 - `gate_result`: `pass` or `fail`
-- `next_action` and `next_agent`: Should point to the next phase (development or code agent)
+- `next_action` and `next_agent`

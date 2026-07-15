@@ -1,6 +1,6 @@
 ---
 name: test-maker
-description: "Test Maker skill. Use when producing unit and E2E tests for the testing SDLC phase. Enforces production-grade Playwright Page Object Model, 4-perspective coverage, and zero flakiness with 2x consecutive stability verification."
+description: "Testing Maker skill. Use when producing unit tests and E2E tests for changed code in the testing SDLC phase. Defines artifacts to create and quality standards for the maker role."
 ---
 
 # Test Maker
@@ -9,300 +9,204 @@ Load this skill alongside `maker-checker-protocol` and `best-practices` when act
 
 ## Role
 
-Write comprehensive unit and E2E tests for changed code:
-
-- **Unit tests:** Using Vitest, with ≥80% coverage on modified files
-- **E2E tests:** Using Playwright with Page Object Model (MANDATORY), all 4 perspectives (happy path, error, boundary, regression), verified locators, accessibility tests, responsive design tests
-
-**Quality bar:** Production-grade, deterministic tests with zero flaky patterns.
+Produce the **testing** phase artifact: unit tests and E2E tests for all changed code.
 
 ## Required Inputs
 
-- `source_ref`: file path, branch name, or PR URL containing changed code
-- `context`: constraints or specific flows to prioritize
+- `source_ref`: file path, branch name, or PR URL containing the changed code
+- `context`: specific flows or edge cases to prioritise
 - `previous_output`: prior checker findings (null on first run; apply all findings if present)
 
-## Test Coverage Strategy
+---
 
-### 4-Perspective Testing (MANDATORY)
+## Mandatory Testing Workflow
 
-Every feature must include:
+### Step 0 — 4-Perspective Test Design (REQUIRED before writing any code)
 
-| Perspective | Purpose | Example |
-|-------------|---------|---------|
-| **Happy Path** | Expected success flow | User fills form, submits, sees success message |
-| **Negative/Error Path** | Failure handling | User submits invalid email, sees error |
-| **Boundary Conditions** | Limits and edge cases | User enters max length field, empty field |
-| **Regression** | Past bug or risk scenario | User navigates back/forward, state is preserved |
+Create a test plan table:
 
-All four perspectives must have corresponding test cases.
+| Scenario ID | Perspective | User Flow | Precondition | Expected Outcome |
+|-------------|-------------|-----------|--------------|-----------------|
 
-## Unit Test Implementation
+Must include at minimum:
+- ≥1 **Happy Path** — expected success flow
+- ≥1 **Negative / Error Path** — failure handling
+- ≥1 **Boundary Condition** — limits, edge cases
+- ≥1 **Regression Scenario** — past bug or known risk scenario
 
-### Test Design Phase (MANDATORY)
+### Step 1 — Discovery Phase (MANDATORY before writing tests)
 
-Before writing code:
+Delegate to **Explore** subagent to scan:
 
-1. Identify all changed functions, hooks, and components
-2. For each, determine:
-   - Happy path scenario
-   - Error/edge case scenarios
-   - Boundary conditions
-   - Dependencies and mocks needed
+- `tests/e2e` — existing E2E test files, page objects, fixtures, helpers
+- Unit test files co-located with changed source files
+- Existing test data files
 
-### Test Writing Requirements
+**Output: Test Inventory Report**
 
-**Coverage:** ≥80% on all modified files
+| File | Status | Action |
+|------|--------|--------|
+| `existing-test.spec.ts` | ✔ Kept | No change |
+| `old-flow.spec.ts` | ✏ Extended | Add new scenario |
+| `obsolete.spec.ts` | ❌ Obsolete | Remove or archive |
+| `new-feature.spec.ts` | 🆕 New | Create |
 
-**Test Structure:**
-```
-should [outcome] when [condition]
-```
+⚠️ STOP and ask:
+> "Review the inventory above. Proceed? (yes / no)"
 
-**Must Cover:**
+If **no** → request clarification before continuing.
+
+### Step 2 — Source Verification (MANDATORY before writing E2E tests)
+
+Delegate to **Explore** subagent to read actual Next.js source components.
+
+Extract only **real, verified** values:
+- `data-testid` attributes
+- `aria-label` attributes
+- `role` attributes
+- Visible text (last resort only)
+
+**Output: Locator Reference Table**
+
+| Element | Locator Type | Verified Value |
+|---------|--------------|----------------|
+| Submit button | `data-testid` | `submit-btn` |
+| Error message | `role` | `alert` |
+
+❌ Do NOT guess selectors
+❌ Do NOT hallucinate DOM attributes
+❌ Only use locators verified from actual source code
+
+### Step 2B — Component Behavior Verification (MANDATORY)
+
+Before writing E2E tests, analyze component behavior from source code:
+
+Create a **Behavior Matrix**:
+
+| Trigger | State Change | DOM Effect | Async? |
+|---------|-------------|-----------|--------|
+| `onChange` on input | Updates controlled state | Field value updates | No |
+| Form `onSubmit` | Loading state | Button disabled | Yes |
+| API response | Data state | List renders | Yes |
+
+This prevents tests from assuming synchronous behavior and identifies the correct wait patterns for Playwright.
+
+### Step 3 — Unit Test Generation
+
+**Requirements:**
+- Cover all changed components, hooks, and utilities
+- Minimum **80% coverage on modified code**
+- Use behavior-focused naming: `should [outcome] when [condition]`
+
+**Must cover:**
 - Rendering behavior
 - State transitions
 - Hook logic
-- Utility function behavior
-- Error handling
-- Edge cases
+- Utility functions
+- Edge cases and error handling
 
-**Tools:** Vitest + React Testing Library
+**Test runner:** Vitest v3.0.0 + React Testing Library
 
-**Mocking:** Mock external dependencies (API, utilities, state stores)
+### Step 4 — E2E Test Generation (Production-Grade Playwright)
 
-**Assertions:** Behavior-focused (what the user sees), not implementation details
+**Test runner:** Playwright
 
-## E2E Test Implementation
+#### ⚠️ MANDATORY: Page Object Model
 
-### MANDATORY: 4-Perspective Test Design
+- ALL E2E tests MUST use Page Object Model (POM) or Actor pattern
+- Zero raw selectors in test bodies — all locators centralized in page objects
+- One page object per page/feature (e.g., `LoginPage.ts`, `CheckoutPage.ts`)
+- Page object methods: `goto()`, `fillUsername()`, `submitForm()`, `getErrorMessage()`, etc.
+- Place page objects in `tests/e2e/pages/` or `tests/e2e/page-objects/`
 
-Create a test plan table **before writing any E2E code:**
+#### ⚠️ MANDATORY: Anti-Flakiness Enforcement
 
-| Scenario ID | Perspective | User Flow | Precondition | Expected Outcome |
-|---|---|---|---|---|
+**FORBIDDEN:**
+- `waitForTimeout()`
+- `setTimeout()` for synchronization
+- Implicit browser waits
+- `.first()`, `.last()` without explicit meaning
+- CSS index selectors (`:nth-child()`)
+- Fragile DOM traversal
 
-Must cover all 4 perspectives with specific test cases.
+**REQUIRED:**
+- `expect()` assertions with explicit timeouts (`{ timeout: 5000 }`)
+- Playwright's auto-wait on visibility
+- Deterministic waits based on element state
 
-### MANDATORY: Discovery Phase
+#### ⚠️ MANDATORY: Test Data Externalization
 
-Before writing E2E tests:
+- Create `tests/e2e/fixtures/test-data.ts` for all test constants
+- All test data referenced from constants file — never hardcoded in test bodies
+- Example: `import { LOGIN_TEST_DATA } from '../fixtures/test-data'`
 
-1. Scan `tests/e2e/` directory for:
-   - Existing test files and patterns
-   - Page objects or locator helpers
-   - Fixtures and test data
-   - Test utilities and action helpers
-2. Document findings:
-   - ✔ Tests to keep unchanged
-   - ✏ Tests to extend
-   - ❌ Tests made obsolete
-   - 🆕 New tests required
+#### ✨ BONUS: Accessibility Tests
 
-### MANDATORY: Source Verification
+- Include keyboard navigation tests (Tab, Enter keys)
+- Include screen reader support tests (role attributes, aria-label)
+- Verify error messages have `role="alert"`
 
-Extract exact locators from the actual source code:
+#### ✨ BONUS: Responsive Design Tests
 
-1. Read component source files
-2. Identify all interactive elements
-3. Verify `data-testid`, `aria-label`, `role`, and visible text
-4. Create **Locator Reference Table:**
+Test critical user flows on:
+- Mobile: 375px × 667px
+- Tablet: 768px × 1024px
+- Desktop: 1920px × 1080px
 
-| Element | Element ID | Locator Type | Verified Value |
-|---------|-----------|--------------|----------------|
-| Login button | login-btn | data-testid | "login-submit" |
-| Email input | email | aria-label | "Email address" |
-
-**CRITICAL:** Do NOT guess or hallucinate locators. Every value must be from source code.
-
-### MANDATORY: Page Object Model
-
-All E2E tests **MUST** use Page Object Model (POM):
-
-**Rules:**
-- One page object per page/feature (e.g., `LoginPage.ts`, `HomePage.ts`)
-- All locators centralized in page objects
-- Zero raw selectors in test bodies
-- Methods in page objects: `goto()`, `fillUsername()`, `submitForm()`, `getErrorMessage()`, etc.
-
-**Example Structure:**
-```typescript
-export class LoginPage {
-  readonly page: Page;
-
-  constructor(page: Page) {
-    this.page = page;
-  }
-
-  async goto() {
-    await this.page.goto('/login');
-  }
-
-  async fillEmail(email: string) {
-    await this.page.locator('data-testid=email-input').fill(email);
-  }
-
-  async fillPassword(password: string) {
-    await this.page.locator('data-testid=password-input').fill(password);
-  }
-
-  async clickSubmit() {
-    await this.page.locator('data-testid=submit-button').click();
-  }
-
-  async getErrorMessage() {
-    return this.page.locator('role=alert').textContent();
-  }
-}
-```
-
-### MANDATORY: Anti-Flakiness Enforcement
-
-**FORBIDDEN patterns:**
-- ❌ `waitForTimeout(2000)` — no arbitrary delays
-- ❌ `setTimeout()` — no synchronization hacks
-- ❌ Implicit browser waits — use explicit waits
-- ❌ `.first()`, `.last()` without explicit meaning
-- ❌ `:nth-child()` selectors — fragile and unstable
-- ❌ Unverified DOM traversal
-
-**REQUIRED patterns:**
-- ✅ `expect(locator).toBeVisible({ timeout: 5000 })` — explicit visibility waits
-- ✅ Deterministic waits based on element state
-- ✅ Locators verified from source code
-- ✅ No index-based selectors
-- ✅ All assertions use `expect()`
-
-### MANDATORY: Test Data Externalization
-
-All test constants must live in `tests/e2e/fixtures/test-data.ts`:
-
-```typescript
-// tests/e2e/fixtures/test-data.ts
-export const LOGIN_TEST_DATA = {
-  validEmail: 'test@example.com',
-  validPassword: 'SecurePass123!',
-  invalidEmail: 'not-an-email',
-  invalidPassword: 'short',
-};
-
-export const FORM_BOUNDARIES = {
-  maxNameLength: 255,
-  minNameLength: 2,
-};
-```
-
-Then reference in tests:
-```typescript
-import { LOGIN_TEST_DATA } from './fixtures/test-data';
-
-test('should login with valid credentials', async ({ page }) => {
-  const loginPage = new LoginPage(page);
-  await loginPage.fillEmail(LOGIN_TEST_DATA.validEmail);
-  // ...
-});
-```
-
-**RULE:** Zero hardcoded test values in test bodies.
-
-### MANDATORY: 2x Consecutive Stability Verification
+### Step 5 — 2x Stability Verification (MANDATORY)
 
 After writing all tests:
 
-1. Run all tests **first time** — record results
-2. Run all tests **second time** — verify identical results
-3. Both runs must show:
-   - ✅ 100% pass rate
-   - ✅ Zero flakiness (no intermittent failures)
-   - ✅ ≥80% coverage on changed files
+- Run all tests **TWICE consecutively**
+- Both runs must achieve:
+  - 100% pass rate
+  - ≥80% coverage on changed files
+  - 0% flakiness (no intermittent failures)
 
-**Output flakiness metrics:**
+**If failures occur:**
+- Fix root cause — never use longer timeouts as a hack
+- Re-run up to 3 cycles
+- Achieve stability before submitting
+
+**Output: Final Validation Summary**
+
 ```
-Flakiness report: 0 failures in 2 consecutive runs (0% flakiness rate)
+✅ Tests executed: X unit, Y E2E
+✅ Pass rate: 100% (both runs)
+✅ Coverage: ≥80% on changed files
+✅ Flakiness: 0% (0 failures in 2 consecutive runs)
+✅ Page Objects: Y objects created with Z verified locators
+✅ Accessibility: K keyboard/screen reader tests
+✅ Responsive: 3 viewports tested
 ```
 
-If any test fails in either run, fix the root cause (NOT by adding longer timeouts) and re-run.
+---
 
-### BONUS: Accessibility Testing
+## Required Output Structure
 
-Include keyboard and screen reader tests:
+Always produce all of the following:
 
-- ✅ Tab key navigates through form fields
-- ✅ Enter key submits forms
-- ✅ Screen reader announces form labels
-- ✅ Screen reader announces error messages with `role="alert"`
-- ✅ All interactive elements have ARIA labels
+1. **4-Perspective Test Plan** (test case table)
+2. **Test Inventory Report** (reuse/extend/create decisions)
+3. **Locator Reference Table** (all verified selectors)
+4. **Behavior Matrix** (component state/trigger analysis)
+5. **Page Objects** (one per page/feature, centralized locators)
+6. **Unit Tests** (≥80% coverage, behavior-focused)
+7. **E2E Tests** (POM only, all 4 perspectives, fixtures)
+8. **Test Data File** (`tests/e2e/fixtures/test-data.ts`)
+9. **Final Validation Summary** (2x runs, 100% pass, 0% flakiness)
 
-### BONUS: Responsive Design Testing
+## Quality Standards
 
-Test critical user flows on multiple viewports:
-
-- 📱 Mobile: 375px × 667px
-- 📱 Tablet: 768px × 1024px
-- 🖥 Desktop: 1920px × 1080px
-
-Verify:
-- No unexpected horizontal scrolling
-- Layout adapts correctly
-- All interactive elements accessible on all sizes
-
-## Output Requirements
-
-Provide:
-
-1. **4-Perspective Test Plan** — Test case table with all perspectives
-2. **Test Inventory Report** — Reuse/extend/create decisions
-3. **Locator Reference Table** (if E2E) — All verified selectors
-4. **Unit Tests** — Vitest tests with ≥80% coverage
-5. **E2E Tests** (if applicable) — Playwright tests using POM
-6. **Page Objects** (if E2E) — All POM classes
-7. **Test Data File** — `fixtures/test-data.ts`
-8. **Final Validation Summary** — 2x run results, flakiness metrics, coverage
-
-## Validation Requirements
-
-Before returning test implementation:
-
-- ✅ All unit tests pass (≥80% coverage)
-- ✅ All E2E tests pass (if applicable)
-- ✅ Tests run **twice consecutively** with 100% pass rate both times
-- ✅ Zero flakiness (0% failure rate on 2x runs)
-- ✅ Playwright uses Page Object Model (zero raw selectors in test bodies)
-- ✅ All E2E locators verified from source code
-- ✅ Test data externalized to fixtures/test-data.ts
-- ✅ All 4 perspectives covered
-- ✅ No `waitForTimeout`, `setTimeout`, or implicit waits
-- ✅ Accessibility tests included (if E2E)
-- ✅ Responsive design tests included (if E2E, on 3 viewports)
-
-## Playwright Configuration (if using Playwright)
-
-Ensure `playwright.config.ts` is generated/updated with:
-
-```typescript
-export default defineConfig({
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:3000',
-    reuseExistingServer: !process.env.CI,
-  },
-  use: {
-    baseURL: 'http://localhost:3000',
-    trace: 'on-first-retry',
-  },
-  projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
-    { name: 'Mobile Chrome', use: { ...devices['Pixel 5'] } },
-    { name: 'Mobile Safari', use: { ...devices['iPhone 12'] } },
-  ],
-  reporter: 'html',
-  fullyParallel: true,
-  retries: 0,
-});
-```
+- ✅ 4-Perspective coverage complete (happy, error, boundary, regression)
+- ✅ Page Object Model used — zero raw selectors in test bodies
+- ✅ All locators verified from source code — no guessing
+- ✅ Anti-flakiness: no `waitForTimeout`, `setTimeout`, nth-child selectors
+- ✅ Test data externalized to `fixtures/test-data.ts`
+- ✅ ≥80% coverage on all modified files
+- ✅ 100% pass rate across 2 consecutive runs
+- ✅ Behavior Matrix created to prevent async assumption errors
 
 ## Checker Handoff
 
-After producing the test implementation, proceed to checker validation within the same agent run — load the **test-checker** skill and apply all gate rules. Do not invoke a separate checker agent.
+After producing the artifact, proceed to checker validation within the same agent run — load the **test-checker** skill and apply all gate rules. Do not invoke a separate checker agent.

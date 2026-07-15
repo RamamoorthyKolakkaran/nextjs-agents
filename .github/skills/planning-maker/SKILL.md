@@ -1,6 +1,6 @@
 ---
 name: planning-maker
-description: "Planning Maker skill. Use when producing requirement analysis, acceptance criteria, component diagrams, and API contracts for the planning SDLC phase. Defines artifacts to create and quality standards for the maker role."
+description: "Planning Maker skill. Use when producing requirement documents, acceptance criteria, user stories, component diagrams, and API contracts for the planning SDLC phase. Defines artifacts to create and quality standards for the maker role."
 ---
 
 # Planning Maker
@@ -9,23 +9,17 @@ Load this skill alongside `maker-checker-protocol` when acting as the **Planning
 
 ## Role
 
-Produce the **planning** phase artifacts:
-
-- Requirement readiness assessment
-- Acceptance criteria verification
-- Component diagrams (Mermaid)
-- API contracts (typed endpoints and schemas)
-- Implementation guidance and risks
+Produce the **planning** phase artifact: requirement documents, acceptance criteria, user stories, component diagrams, and API contracts.
 
 ## Required Inputs
 
-- `source_ref`: Jira ticket URL, Jira issue ID (e.g., `PROJ-123`), or plain-text description
+- `source_ref`: Jira ticket URL, Jira issue ID, PR URL, or plain-text description
 - `context`: constraints or additional guidance
 - `previous_output`: prior checker findings (null on first run; apply all findings if present)
 
-## Output Artifact Structure
+## Output Artifact
 
-Produce a planning document with these sections:
+Produce **all of the following sections** that are relevant to the ticket type:
 
 ### 1. Ticket Classification
 
@@ -41,115 +35,104 @@ Classify the ticket type (one or more):
 - State Management / Performance / SEO / Accessibility
 - Refactoring / Bug Fix / Testing / Build Config / Infrastructure
 
-Provide **confidence score** for classification.
+Provide a **confidence score** for the classification.
 
 ### 2. Requirement Readiness
 
-Assess whether the ticket is ready for implementation:
+Analyze the ticket for:
 
-- **Ready** — All requirements clear, acceptance criteria defined, no blockers
-- **Mostly Ready** — Minor clarifications needed but implementation can proceed
-- **Needs Clarification** — Key information missing; implementation blocked
-- **Not Ready** — Significant rework needed; ticket rejected
+- Business objective
+- Functional & non-functional requirements
+- Acceptance criteria
+- Missing information or ambiguities
+- Dependencies and risks
 
-### 3. Clarification Questions
+Output a **Readiness Score**: Ready / Mostly Ready / Needs Clarification / Not Ready
 
-If readiness is not **Ready**, list specific questions to the user:
+Include:
+- Clarification Questions (if any)
+- Assumptions
+- Risks
 
-- What exactly is the expected behavior?
-- What are the acceptance criteria?
-- What data models are involved?
-- What error cases must be handled?
-- What constraints or dependencies exist?
+### 3. Architecture Decision
 
-### 4. Architecture Decision
+Determine where the change should live:
 
-Determine where the code should live in the Next.js App Router:
+- Server Component
+- Client Component
+- Server Action
+- Route Handler
+- Middleware
+- Shared Component / Custom Hook / Utility / Service / Repository
 
-- **Server Component** — For read-only, data-fetching components
-- **Client Component** — For interactive or stateful components
-- **Server Action** — For mutations (form submissions, data updates)
-- **Route Handler** — For API endpoints or webhooks
-- **Middleware** — For request/response interception
-- **Custom Hook** — For shared state or effect logic
-- **Utility Function** — For reusable business logic
-- **Service/Repository** — For data access layers
+Explain **why** each selection is chosen. Rules:
 
-For each decision, explain **why** it was chosen based on the feature requirements.
+- Prefer Server Components unless interactivity is required
+- Use Server Actions for mutations where appropriate
+- Reuse existing components and utilities
+- Follow existing project architecture and patterns
 
-### 5. Affected Next.js Areas
+### 4. Impact Analysis
 
-Identify which parts of the codebase will be impacted:
+Identify affected areas:
 
-- `app/` (pages, layouts)
-- `components/` (UI components)
-- `hooks/` (custom hooks)
-- `lib/` or `utils/` (utilities, services)
-- `types/` (type definitions)
-- `middleware.ts`
-- Database or ORM layer
-- Tests
+- `app/`, `components/`, `hooks/`, `services/`, `lib/`, `middleware.ts`, `route.ts`, `page.tsx`, `layout.tsx`, `database/`, `tests/`
 
-For each, explain **why** and **what changes** are expected.
+For each, explain **why it's affected** and **expected changes**. Do not include unaffected areas.
 
-### 6. Required Artifacts
+### 5. Required Artifacts
 
-Specify which artifacts are needed before implementation:
+Generate **only the artifacts needed** for this ticket:
 
-- **Acceptance criteria** (user-facing requirements)
-- **API contract** (if API changes are needed)
-- **Component diagram** (if new component hierarchy is needed)
-- **Type definitions** (if new data models are needed)
-- **Test cases** (list of scenarios to test)
-- **Security considerations** (auth, validation, secrets)
+- **UI Features:** component hierarchy, user flow, validation, loading/error/empty states, accessibility
+- **API Features:** endpoint definition, request/response types, validation, error responses
+- **Server Actions:** input/output contracts, validation, error handling
+- **Database Changes:** schema updates, migration, rollback
+- **Integrations:** request/response mapping, error handling, retries
+- **Authentication:** access rules, protected routes
+- **Bug Fixes:** root cause, reproduction steps, fix strategy
+- **Refactoring:** scope, affected files, expected improvements, risk mitigation
+- **Testing:** unit test cases, E2E scenarios, test data, expected outcomes
+
+### 6. API Integration (if applicable)
+
+Ensure **full API contract compliance**:
+
+1. API Specification: endpoint, HTTP method, authentication, headers, query/body parameters, response format, error codes, pagination/filtering
+2. TypeScript types/interfaces for request/response/error
+3. Implementation guidance: service/util file placement, loading/error state handling, typed response mapping
+4. Contract enforcement: do not add extra fields, omit required fields, or implement without specification
 
 ### 7. Implementation Plan
 
-Sequence the implementation tasks:
+For each task:
 
-1. **Objective** — What is this task doing?
-2. **Files affected** — Which files will change?
-3. **Dependencies** — Does this task depend on others?
-4. **Risks** — What could go wrong?
+- Objective
+- Files affected
+- Dependencies
+- Risks
+
+Order tasks in proper sequence. Avoid speculative improvements. Focus strictly on ticket scope.
 
 ### 8. Verification Checklist
 
-List the checks that will confirm the feature is complete:
+Include only relevant checks:
 
-- **Functional** — All acceptance criteria implemented?
-- **UI/UX** — Responsive, loading/error states, accessibility?
-- **API** — Request/response contracts match the spec?
-- **Security** — Authentication, authorization, secrets protected?
-- **Performance** — No unnecessary re-renders, efficient queries?
-- **Testing** — Unit and E2E tests written and passing?
+- **Functional:** all acceptance criteria implemented, expected flows work
+- **UI:** responsive, loading/error/empty states, accessibility
+- **API:** request/response match contract, validation, error handling
+- **Security:** authentication, authorization, sensitive data protected
+- **Testing:** unit/integration tests, regression coverage
 
 ## Quality Standards
 
-All planning artifacts must meet these standards:
-
-### Clarity
-- Requirements are written in plain language
-- Acceptance criteria are unambiguous and testable
-- Diagrams are labeled and relationships are clear
-- API contracts show examples for every endpoint
-
-### Completeness
-- All acceptance criteria are documented
-- All affected system areas are identified
-- All risks are surface-level identified
-- All assumptions are stated
-
-### Correctness
-- Requirements align with the ticket description
-- Architecture decisions are appropriate for Next.js
-- Implementation plan is logically sequenced
-- No contradictions between sections
-
-### Consistency
-- Architecture decisions follow Next.js conventions
-- Terminology matches project standards
-- References to existing code are accurate
+- All acceptance criteria are testable and unambiguous
+- Architecture decision is justified with reasoning
+- Impact analysis covers all affected files without padding
+- API contracts are fully specified with TypeScript types
+- Implementation plan is ordered correctly with no missing dependencies
+- No speculative improvements beyond ticket scope
 
 ## Checker Handoff
 
-After producing the planning artifact, proceed to checker validation within the same agent run — load the **planning-checker** skill and apply all gate rules. Do not invoke a separate checker agent.
+After producing the artifact, proceed to checker validation within the same agent run — load the **planning-checker** skill and apply all gate rules. Do not invoke a separate checker agent.
